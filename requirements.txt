@@ -1,0 +1,16 @@
+opencv-python
+opencv-contrib-python
+Pillow
+h5py
+imutils
+tensorflow
+PyQt5
+numpy
+mtcnn
+scipy
+matplotlib
+keras_preprocessing
+face-recognition
+
+
+
