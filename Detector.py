@@ -3,7 +3,7 @@ from time import time
 from PIL import Image
 from tkinter import messagebox
 
-def main_app(name, timeout = 5):
+def main_app(name, timeout = 30):
         
         face_cascade = cv2.CascadeClassifier('./data/haarcascade_frontalface_default.xml')
         recognizer = cv2.face.LBPHFaceRecognizer_create()
