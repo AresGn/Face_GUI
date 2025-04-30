@@ -424,12 +424,30 @@ class RecognitionPage(QWidget):
                                "Aucune présence à enregistrer. La liste est vide.")
             return
         
-        # Afficher un message de succès
-        QMessageBox.information(self, "Enregistrement réussi", 
-                               f"{len(self.recognized_employees)} présences ont été enregistrées.")
-        
-        # Journal
-        logging.info(f"{len(self.recognized_employees)} présences enregistrées")
+        try:
+            # Enregistrer les présences dans la base de données
+            count = 0
+            for employee_id, timestamp in self.recognized_employees.items():
+                # Récupérer les informations d'heure
+                time_str = timestamp.strftime("%H:%M:%S")
+                date_str = timestamp.strftime("%Y-%m-%d")
+                
+                # Enregistrer dans la base de données
+                result = db_manager.mark_attendance(employee_id, date_str, time_str, "Present")
+                if result:
+                    count += 1
+            
+            # Afficher un message de succès
+            QMessageBox.information(self, "Enregistrement réussi", 
+                                   f"{count} présences ont été enregistrées avec succès dans la base de données.")
+            
+            # Journal
+            logging.info(f"{count} présences enregistrées dans la base de données")
+        except Exception as e:
+            # En cas d'erreur, afficher un message d'erreur
+            QMessageBox.critical(self, "Erreur", 
+                                f"Une erreur est survenue lors de l'enregistrement des présences: {str(e)}")
+            logging.error(f"Erreur lors de l'enregistrement des présences: {e}")
     
     def closeEvent(self, event):
         """Gérer l'événement de fermeture de la page"""
