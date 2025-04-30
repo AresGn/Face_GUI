@@ -1,0 +1,33 @@
+{
+    "app": {
+        "name": "Système de reconnaissance faciale - CITEX SART",
+        "version": "1.0.0",
+        "created_at": "2025-04-29 12:00:07"
+    },
+    "database": {
+        "path": "data/employees.db"
+    },
+    "face_recognition": {
+        "min_confidence": 50,
+        "max_images": 300,
+        "cascade_file": "data/haarcascade_frontalface_default.xml"
+    },
+    "paths": {
+        "faces_dir": "data/faces",
+        "classifiers_dir": "data/classifiers",
+        "attendance_dir": "data/attendance"
+    },
+    "export": {
+        "default_format": "excel",
+        "company_name": "CITEX SART",
+        "report_title": "Rapport de présence des employés"
+    },
+    "ui": {
+        "theme": "fusion",
+        "language": "fr",
+        "window_size": {
+            "width": 1024,
+            "height": 768
+        }
+    }
+}

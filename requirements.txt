@@ -11,6 +11,9 @@ scipy
 matplotlib
 keras_preprocessing
 face-recognition
+python-docx
+pandas
+openpyxl
 
 
 

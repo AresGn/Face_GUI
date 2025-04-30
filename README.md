@@ -70,3 +70,84 @@ Made By ❤ : [JoeVenner](mailto:ylafrimi@gmail.com)<br>
 
 
 
+
+Je comprends que vous souhaitez:
+
+1. Réorganiser le projet avec une structure de dossiers plus propre (dossier src)
+2. Créer une nouvelle interface avec PyQt5 pour une application de gestion de présence pour CITEX SART
+3. Implémenter un système qui:
+   - Enregistre les ouvriers (nom, prénom, matricule, poste)
+   - Reconnaît les employés par reconnaissance faciale
+   - Enregistre les présences dans un tableau (nom, heure, statut)
+   - Permet d'exporter les données (PDF, Word)
+   - Inclut un tableau de bord
+4. Intégrer SQLite pour stocker les photos et informations
+
+Voici mon plan d'implémentation:
+
+## Plan d'organisation du projet
+
+```
+FaceRecognition-GUI/
+├── src/
+│   ├── core/
+│   │   ├── face_detector.py (logique de reconnaissance faciale)
+│   │   ├── dataset_creator.py (création des jeux de données)
+│   │   └── classifier.py (entraînement du modèle)
+│   ├── database/
+│   │   ├── db_manager.py (gestion de la base de données SQLite)
+│   │   └── schema.py (définition du schéma)
+│   ├── ui/
+│   │   ├── main_window.py (fenêtre principale)
+│   │   ├── registration_page.py (page d'enregistrement employé)
+│   │   ├── recognition_page.py (page de reconnaissance)
+│   │   ├── attendance_page.py (tableau des présences)
+│   │   └── dashboard_page.py (tableau de bord)
+│   ├── utils/
+│   │   ├── export.py (exportation PDF/Word)
+│   │   └── config.py (configuration)
+│   └── assets/
+│       ├── icons/
+│       └── styles/
+├── data/
+│   ├── attendance/ (fichiers d'exportation)
+│   └── employees.db (base de données SQLite)
+├── app.py (point d'entrée)
+└── run_app.bat (script de lancement)
+```
+
+## Structure de la base de données
+
+Tables proposées:
+1. `employees` - Informations des employés (id, nom, prénom, matricule, poste)
+2. `face_data` - Données des visages (employee_id, image_path)
+3. `attendance` - Registre de présence (id, employee_id, date, heure_arrivée, statut)
+
+## Flux de l'application
+
+1. **Page d'accueil**
+   - Bouton d'enregistrement d'employé
+   - Bouton pour la prise de présence
+   - Bouton pour consulter les présences
+   - Accès au tableau de bord
+
+2. **Enregistrement d'employé**
+   - Formulaire (nom, prénom, matricule, poste)
+   - Capture de photos pour l'entraînement du modèle
+   - Sauvegarde dans la base de données
+
+3. **Reconnaissance et prise de présence**
+   - Caméra active pour reconnaître les employés
+   - Affichage en temps réel des employés reconnus
+   - Enregistrement automatique de l'heure d'arrivée
+
+4. **Tableau des présences**
+   - Liste des présences du jour
+   - Filtrage par date/employé
+   - Exportation (PDF, Word, Excel)
+
+5. **Tableau de bord**
+   - Statistiques de présence
+   - Graphiques (taux de présence, retards, etc.)
+
+Souhaitez-vous que je procède avec cette structure ou avez-vous des ajustements à proposer?
