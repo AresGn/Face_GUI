@@ -151,3 +151,61 @@ Tables proposées:
    - Graphiques (taux de présence, retards, etc.)
 
 Souhaitez-vous que je procède avec cette structure ou avez-vous des ajustements à proposer?
+
+
+# Plan d'implémentation pour la fonctionnalité d'upload vidéo
+
+Votre idée d'ajouter une option pour uploader une vidéo au lieu de la capture en direct est excellente et tout à fait réalisable. Cette fonctionnalité sera très utile pour les personnes qui ne peuvent pas se déplacer physiquement pour l'enregistrement.
+
+## Composants nécessaires
+
+1. **Interface utilisateur**:
+   - Un bouton "Uploader une vidéo" comme alternative à "Capturer les images"
+   - Un sélecteur de fichier (QFileDialog) pour choisir la vidéo
+   - Un lecteur de prévisualisation vidéo (facultatif)
+   - Une barre de progression pour le traitement
+
+2. **Traitement vidéo**:
+   - Nous utiliserons OpenCV (déjà implémenté) pour découper la vidéo en frames
+   - Le même algorithme de détection faciale sera utilisé pour extraire les visages
+   - Stockage des images extraites dans le même format que la capture directe
+
+3. **Bibliothèques supplémentaires**:
+   - Aucune bibliothèque supplémentaire n'est nécessaire car nous utilisons déjà OpenCV et PyQt5
+
+## Plan d'implémentation
+
+1. **Modification de l'interface utilisateur**:
+   - Ajouter un GroupBox "Méthode d'enregistrement" avec deux options:
+     - Option 1: Capture en direct (méthode actuelle)
+     - Option 2: Upload vidéo (nouvelle méthode)
+   - Ajouter un bouton "Sélectionner une vidéo" qui s'active lorsque l'option 2 est sélectionnée
+
+2. **Création d'un nouveau thread**:
+   - Créer une classe `VideoProcessorThread` similaire à `DatasetCreatorThread`
+   - Cette classe prendra un chemin de vidéo en entrée au lieu de la caméra en direct
+   - Elle utilisera `cv2.VideoCapture(video_path)` au lieu de `cv2.VideoCapture(0)`
+
+3. **Extraction d'images de la vidéo**:
+   - Lire la vidéo frame par frame
+   - Échantillonner (par exemple, prendre une frame toutes les 5-10 frames) pour éviter la redondance
+   - Utiliser la détection de visage sur chaque frame sélectionnée
+   - Conserver uniquement les frames où un visage est clairement visible
+   - Sauvegarder ces images dans le même format et dossier que la méthode actuelle
+
+4. **Traitement et entraînement**:
+   - Utiliser le même processus d'entraînement que celui déjà implémenté
+   - La méthode `train_model()` peut rester inchangée
+
+## Références existantes
+
+Cette approche est similaire à plusieurs projets GitHub comme celui que vous avez mentionné avoir vu. Des projets comme [Face_recognition](https://github.com/JoaoIshida/Face_recognition) et d'autres utilisent déjà cette technique d'extraction d'images à partir de vidéos pour l'entraînement de modèles de reconnaissance faciale.
+
+## Avantages
+
+1. **Flexibilité**: Les utilisateurs peuvent s'enregistrer à distance
+2. **Efficacité**: Peut-être même plus efficace que la capture en direct car la vidéo peut être de meilleure qualité
+3. **Réutilisation du code**: Utilise majoritairement le code existant
+4. **Interface intuitive**: Simple à comprendre pour les utilisateurs
+
+Cette fonctionnalité devrait être relativement simple à implémenter en s'appuyant sur l'architecture existante de votre application.

@@ -16,6 +16,33 @@ from utils.export import data_exporter
 logging.basicConfig(filename='attendance.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Appliquer le style pour tous les QGroupBox dans cette page
+GROUP_BOX_STYLE = """
+    QGroupBox {
+        font-size: 18px;
+        font-weight: bold;
+        margin-top: 40px;
+        padding-top: 50px;
+        border: 2px solid #3867d6;
+        border-radius: 10px;
+    }
+    QGroupBox::title {
+        color: white;
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 8px 30px;
+        background-color: #3867d6;
+        border-radius: 6px;
+        min-width: 150px;
+    }
+    QLabel {
+        font-size: 15px;
+        font-weight: bold;
+        color: white;
+        margin: 5px;
+    }
+"""
+
 class AttendancePage(QWidget):
     """Page d'affichage des présences"""
     
@@ -57,8 +84,11 @@ class AttendancePage(QWidget):
     
     def create_filters_section(self):
         """Créer la section des filtres"""
-        filters_group = QGroupBox("Filtres")
-        filters_layout = QHBoxLayout()
+        filters_group = QGroupBox("Filtres de recherche")
+        filters_group.setStyleSheet(GROUP_BOX_STYLE)
+        
+        filters_layout = QVBoxLayout()
+        filters_layout.setContentsMargins(20, 20, 20, 20)
         
         # Formulaire des filtres
         form_layout = QFormLayout()
@@ -147,6 +177,8 @@ class AttendancePage(QWidget):
     def create_actions_section(self):
         """Créer la section des actions"""
         actions_group = QGroupBox("Actions")
+        actions_group.setStyleSheet(GROUP_BOX_STYLE)
+        
         actions_layout = QHBoxLayout()
         
         # Bouton d'exportation

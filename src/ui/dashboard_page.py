@@ -294,10 +294,6 @@ class DashboardPage(QWidget):
         stats_layout = self.create_stats_section()
         main_layout.addLayout(stats_layout)
         
-        # Créer la section principale avec un seul graphique
-        self.presence_pie = PieChartWidget(title="Répartition des présences")
-        main_layout.addWidget(self.presence_pie, 1)
-        
         # Définir le layout pour ce widget
         self.setLayout(main_layout)
     
@@ -306,13 +302,27 @@ class DashboardPage(QWidget):
         filters_group = QGroupBox("Filtres")
         filters_group.setStyleSheet("""
             QGroupBox {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
+                margin-top: 35px;
+                padding-top: 45px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 120px;
             }
             QLabel {
                 font-size: 15px;
                 font-weight: bold;
                 color: white;
+                margin: 5px;
             }
         """)
         
@@ -439,18 +449,6 @@ class DashboardPage(QWidget):
             self.employés_enregistrés_label.setText(str(total_employees))
             self.présences_ce_mois_label.setText(str(total_attendances))
             self.taux_de_présence_label.setText(f"{attendance_rate:.2f}%")
-            
-            # Mettre à jour le diagramme circulaire des présences
-            present_count = total_attendances
-            absent_count = (total_employees * working_days) - present_count
-            if absent_count < 0:
-                absent_count = 0
-            
-            self.presence_pie.set_data(
-                [present_count, absent_count],
-                ["Présents", "Absents"],
-                [QColor(0, 200, 0), QColor(200, 0, 0)]
-            )
             
             # Journal
             logging.info(f"Données du tableau de bord chargées pour {calendar.month_name[month]} {year}")

@@ -156,7 +156,27 @@ class RecognitionPage(QWidget):
         
         # Groupe pour les contrôles
         controls_group = QGroupBox("Contrôles")
+        controls_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: 40px;
+                padding-top: 50px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 150px;
+            }
+        """)
         controls_layout = QHBoxLayout()
+        controls_layout.setContentsMargins(20, 20, 20, 20)
         
         # Boutons de contrôle
         self.start_btn = QPushButton("Démarrer la reconnaissance")
@@ -221,7 +241,27 @@ class RecognitionPage(QWidget):
         
         # Groupe pour les actions
         actions_group = QGroupBox("Actions")
+        actions_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: 40px;
+                padding-top: 50px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 150px;
+            }
+        """)
         actions_layout = QHBoxLayout()
+        actions_layout.setContentsMargins(20, 20, 20, 20)
         
         # Boutons d'action
         self.clear_btn = QPushButton("Effacer la liste")

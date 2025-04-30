@@ -212,18 +212,22 @@ class FaceRecognizerApp(QMainWindow):
             }
             
             QGroupBox {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
+                margin-top: 30px;
+                padding-top: 40px;
             }
             
             QGroupBox::title {
                 subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 10px;
-                padding: 2px 5px;
+                subcontrol-position: top center;
+                padding: 8px 20px;
+                margin-bottom: 15px;
                 color: white;
                 background-color: {COLORS['primary']};
-                border-radius: 4px;
+                border-radius: 6px;
+                min-width: 100px;
+                text-align: center;
             }
         """)
     

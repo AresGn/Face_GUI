@@ -61,7 +61,33 @@ class RegistrationPage(QWidget):
         
         # Groupe pour les informations de l'employé
         employee_group = QGroupBox("Informations de l'employé")
+        employee_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: 40px;
+                padding-top: 50px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 200px;
+            }
+            QLabel {
+                font-size: 15px;
+                font-weight: bold;
+                color: white;
+                margin: 5px;
+            }
+        """)
         employee_form = QFormLayout()
+        employee_form.setContentsMargins(20, 20, 20, 20)
         
         # Champs du formulaire
         self.nom_input = QLineEdit()
@@ -85,7 +111,27 @@ class RegistrationPage(QWidget):
         
         # Groupe pour les actions
         actions_group = QGroupBox("Actions")
+        actions_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: 40px;
+                padding-top: 50px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 150px;
+            }
+        """)
         actions_layout = QVBoxLayout()
+        actions_layout.setContentsMargins(20, 20, 20, 20)
         
         # Boutons d'action
         self.register_btn = QPushButton("Enregistrer")
@@ -135,7 +181,33 @@ class RegistrationPage(QWidget):
         
         # Groupe pour les informations de capture
         capture_info_group = QGroupBox("Informations de capture")
+        capture_info_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: 40px;
+                padding-top: 50px;
+                border: 2px solid #3867d6;
+                border-radius: 10px;
+            }
+            QGroupBox::title {
+                color: white;
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 8px 30px;
+                background-color: #3867d6;
+                border-radius: 6px;
+                min-width: 200px;
+            }
+            QLabel {
+                font-size: 15px;
+                font-weight: bold;
+                color: white;
+                margin: 5px;
+            }
+        """)
         capture_info_layout = QVBoxLayout()
+        capture_info_layout.setContentsMargins(20, 20, 20, 20)
         
         # Compteur d'images
         self.image_count_label = QLabel("Aucune image capturée")
