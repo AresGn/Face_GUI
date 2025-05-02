@@ -210,40 +210,55 @@ class AttendancePage(QWidget):
             status = self.status_filter.currentText()
             search_text = self.search_input.text().strip().lower()
             
+            # Afficher les données de debug
+            logging.info(f"Chargement des présences avec filtres: Date={selected_date}, Employé={employee_id}, Statut={status}, Recherche={search_text}")
+            
             # Récupérer les présences pour la date sélectionnée
             if status == "Tous":
                 status = None
             
             # Récupérer les présences selon les filtres
+            records = []
+            
             if employee_id:
                 # Récupérer les présences pour un employé spécifique
-                records = db_manager.get_employee_attendance(employee_id, selected_date, selected_date)
+                employee_records = db_manager.get_employee_attendance(employee_id, selected_date, selected_date)
                 
                 # Ajouter les informations de l'employé
                 employee = db_manager.get_employee_by_id(employee_id)
-                if employee and records:
-                    for record in records:
-                        record['nom'] = employee['nom']
-                        record['prenom'] = employee['prenom']
-                        record['matricule'] = employee['matricule']
-                        record['poste'] = employee['poste']
-                        record['employee_id'] = employee_id
+                if employee:
+                    for record in employee_records:
+                        record_with_info = {
+                            'id': record['id'],
+                            'employee_id': employee_id,
+                            'date': record['date'],
+                            'heure_arrivee': record['heure_arrivee'],
+                            'statut': record['statut'],
+                            'nom': employee['nom'],
+                            'prenom': employee['prenom'],
+                            'matricule': employee['matricule'],
+                            'poste': employee['poste']
+                        }
+                        records.append(record_with_info)
             else:
                 # Récupérer toutes les présences pour la date sélectionnée
                 records = db_manager.get_attendance(selected_date)
+                
+                # Debug
+                logging.info(f"Nombre de présences récupérées pour la date {selected_date}: {len(records)}")
             
             # Filtrer par statut si nécessaire
             if status:
-                records = [r for r in records if r['statut'] == status]
+                records = [r for r in records if r.get('statut') == status]
             
             # Filtrer par texte de recherche si nécessaire
             if search_text:
                 filtered_records = []
                 for record in records:
                     # Vérifier si le texte de recherche est dans le nom, prénom ou matricule
-                    if (search_text in record['nom'].lower() or
-                        search_text in record['prenom'].lower() or
-                        search_text in record['matricule'].lower()):
+                    if (search_text in record.get('nom', '').lower() or
+                        search_text in record.get('prenom', '').lower() or
+                        search_text in record.get('matricule', '').lower()):
                         filtered_records.append(record)
                 records = filtered_records
             
@@ -253,13 +268,13 @@ class AttendancePage(QWidget):
             # Remplir le tableau avec les données
             for row, record in enumerate(records):
                 self.attendance_table.insertRow(row)
-                self.attendance_table.setItem(row, 0, QTableWidgetItem(str(record['employee_id'])))
-                self.attendance_table.setItem(row, 1, QTableWidgetItem(record['nom']))
-                self.attendance_table.setItem(row, 2, QTableWidgetItem(record['prenom']))
-                self.attendance_table.setItem(row, 3, QTableWidgetItem(record['matricule']))
-                self.attendance_table.setItem(row, 4, QTableWidgetItem(record['poste']))
-                self.attendance_table.setItem(row, 5, QTableWidgetItem(record['heure_arrivee']))
-                self.attendance_table.setItem(row, 6, QTableWidgetItem(record['statut']))
+                self.attendance_table.setItem(row, 0, QTableWidgetItem(str(record.get('employee_id', ''))))
+                self.attendance_table.setItem(row, 1, QTableWidgetItem(record.get('nom', '')))
+                self.attendance_table.setItem(row, 2, QTableWidgetItem(record.get('prenom', '')))
+                self.attendance_table.setItem(row, 3, QTableWidgetItem(record.get('matricule', '')))
+                self.attendance_table.setItem(row, 4, QTableWidgetItem(record.get('poste', '')))
+                self.attendance_table.setItem(row, 5, QTableWidgetItem(record.get('heure_arrivee', '')))
+                self.attendance_table.setItem(row, 6, QTableWidgetItem(record.get('statut', '')))
             
             # Mettre à jour le nombre d'enregistrements
             self.records_label.setText(f"{len(records)} enregistrement(s)")
@@ -271,6 +286,9 @@ class AttendancePage(QWidget):
             # Afficher un message d'erreur
             QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement des présences: {e}")
             logging.error(f"Erreur lors du chargement des présences: {e}")
+            # Ajouter plus de détails sur l'erreur
+            import traceback
+            logging.error(traceback.format_exc())
     
     def reset_filters(self):
         """Réinitialiser les filtres"""

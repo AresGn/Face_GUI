@@ -7,170 +7,122 @@ from datetime import datetime
 logging.basicConfig(filename='config.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-class Configuration:
-    """Classe pour gérer la configuration de l'application"""
-    
-    def __init__(self, config_file='config.json'):
-        """
-        Initialiser la configuration
-        
-        Args:
-            config_file (str): Chemin vers le fichier de configuration
-        """
-        self.config_file = config_file
-        self.config = self.load_config()
+CONFIG_FILE = 'config.json'
+
+# Configuration par défaut
+DEFAULT_CONFIG = {
+    'app': {
+        'name': 'Système de reconnaissance faciale - CITEX SART',
+        'version': '1.0.0'
+    },
+    'ui': {
+        'window_size': {
+            'width': 1200,
+            'height': 800
+        }
+    },
+    'camera': {
+        'use_droid_cam': False,
+        'droid_cam_url': 'http://192.168.1.X:4747/video',
+        'index': 0
+    },
+    'detection': {
+        'min_confidence': 60,
+        'required_frames': 5,
+        'min_neighbors': 6,
+        'scale_factor': 1.2,
+        'min_size': [80, 80]
+    }
+}
+
+class Config:
+    def __init__(self):
+        """Initialiser la configuration de l'application"""
+        self.config = DEFAULT_CONFIG.copy()
+        self.load_config()
     
     def load_config(self):
-        """
-        Charger la configuration depuis le fichier
-        
-        Returns:
-            dict: La configuration chargée ou la configuration par défaut
-        """
+        """Charger la configuration depuis le fichier JSON"""
         try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                logging.info(f"Configuration chargée depuis {self.config_file}")
-                return config
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r') as f:
+                    loaded_config = json.load(f)
+                    # Mise à jour récursive de la configuration
+                    self._update_nested_dict(self.config, loaded_config)
+                    logging.info("Configuration chargée avec succès")
             else:
-                # Créer une configuration par défaut
-                config = self.get_default_config()
-                self.save_config(config)
-                return config
+                # Créer le fichier de configuration avec les valeurs par défaut
+                self.save_config()
+                logging.info("Nouveau fichier de configuration créé avec les valeurs par défaut")
         except Exception as e:
             logging.error(f"Erreur lors du chargement de la configuration: {e}")
-            return self.get_default_config()
     
-    def save_config(self, config=None):
-        """
-        Sauvegarder la configuration dans le fichier
-        
-        Args:
-            config (dict, optional): La configuration à sauvegarder
-        
-        Returns:
-            bool: True si la sauvegarde a réussi, False sinon
-        """
+    def save_config(self):
+        """Enregistrer la configuration dans le fichier JSON"""
         try:
-            if config is None:
-                config = self.config
-            
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
-            
-            logging.info(f"Configuration sauvegardée dans {self.config_file}")
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(self.config, f, indent=4)
+            logging.info("Configuration enregistrée avec succès")
             return True
         except Exception as e:
-            logging.error(f"Erreur lors de la sauvegarde de la configuration: {e}")
+            logging.error(f"Erreur lors de l'enregistrement de la configuration: {e}")
             return False
     
-    def get_default_config(self):
+    def get(self, key_path, default=None):
         """
-        Retourner la configuration par défaut
-        
-        Returns:
-            dict: La configuration par défaut
-        """
-        return {
-            "app": {
-                "name": "Système de reconnaissance faciale - CITEX SART",
-                "version": "1.0.0",
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            },
-            "database": {
-                "path": "data/employees.db"
-            },
-            "face_recognition": {
-                "min_confidence": 50,
-                "max_images": 300,
-                "cascade_file": "data/haarcascade_frontalface_default.xml"
-            },
-            "paths": {
-                "faces_dir": "data/faces",
-                "classifiers_dir": "data/classifiers",
-                "attendance_dir": "data/attendance"
-            },
-            "export": {
-                "default_format": "excel",
-                "company_name": "CITEX SART",
-                "report_title": "Rapport de présence des employés"
-            },
-            "ui": {
-                "theme": "fusion",
-                "language": "fr",
-                "window_size": {
-                    "width": 1024,
-                    "height": 768
-                }
-            }
-        }
-    
-    def get(self, key, default=None):
-        """
-        Obtenir une valeur de configuration
+        Obtenir une valeur de configuration par son chemin d'accès
         
         Args:
-            key (str): Clé de la configuration (peut être une clé imbriquée avec '.')
+            key_path (str): Chemin d'accès à la valeur (ex: 'camera.use_droid_cam')
             default: Valeur par défaut si la clé n'existe pas
         
         Returns:
-            La valeur de la configuration ou la valeur par défaut
+            La valeur de configuration ou la valeur par défaut
         """
-        try:
-            keys = key.split('.')
-            value = self.config
-            for k in keys:
-                value = value[k]
-            return value
-        except (KeyError, TypeError):
-            return default
+        keys = key_path.split('.')
+        value = self.config
+        
+        for key in keys:
+            if isinstance(value, dict) and key in value:
+                value = value[key]
+            else:
+                return default
+        
+        return value
     
-    def set(self, key, value):
+    def set(self, key_path, value):
         """
-        Définir une valeur de configuration
+        Définir une valeur de configuration par son chemin d'accès
         
         Args:
-            key (str): Clé de la configuration (peut être une clé imbriquée avec '.')
-            value: Valeur à définir
+            key_path (str): Chemin d'accès à la valeur (ex: 'camera.use_droid_cam')
+            value: Nouvelle valeur à définir
         
         Returns:
-            bool: True si la définition a réussi, False sinon
+            bool: True si la valeur a été définie avec succès, False sinon
         """
-        try:
-            keys = key.split('.')
-            config = self.config
-            for k in keys[:-1]:
-                if k not in config:
-                    config[k] = {}
-                config = config[k]
-            config[keys[-1]] = value
-            return self.save_config()
-        except Exception as e:
-            logging.error(f"Erreur lors de la définition de la configuration: {e}")
-            return False
+        keys = key_path.split('.')
+        target = self.config
+        
+        # Naviguer jusqu'au dernier niveau de la hiérarchie
+        for key in keys[:-1]:
+            if key not in target:
+                target[key] = {}
+            target = target[key]
+        
+        # Définir la valeur
+        target[keys[-1]] = value
+        
+        # Enregistrer la configuration
+        return self.save_config()
     
-    def ensure_directories(self):
-        """
-        S'assurer que tous les répertoires nécessaires existent
-        
-        Returns:
-            bool: True si tous les répertoires existent ou ont été créés, False sinon
-        """
-        try:
-            # Créer les répertoires définis dans la configuration
-            for path_key, path_value in self.get('paths', {}).items():
-                os.makedirs(path_value, exist_ok=True)
-                logging.info(f"Répertoire créé/vérifié: {path_value}")
-            
-            # Créer le répertoire de la base de données
-            db_path = self.get('database.path', 'data/employees.db')
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-            
-            return True
-        except Exception as e:
-            logging.error(f"Erreur lors de la création des répertoires: {e}")
-            return False
+    def _update_nested_dict(self, d, u):
+        """Mettre à jour récursivement un dictionnaire imbriqué"""
+        for k, v in u.items():
+            if isinstance(v, dict) and k in d and isinstance(d[k], dict):
+                self._update_nested_dict(d[k], v)
+            else:
+                d[k] = v
 
 # Instance globale de la configuration
-config = Configuration() 
+config = Config() 

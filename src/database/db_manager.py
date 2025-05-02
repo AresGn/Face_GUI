@@ -198,6 +198,34 @@ class DatabaseManager:
         finally:
             self.disconnect()
     
+    def delete_employee(self, employee_id):
+        """Supprimer un employé et toutes ses données associées"""
+        if not self.connect():
+            return False
+        
+        try:
+            # Vérifier si l'employé existe
+            self.cursor.execute('SELECT id FROM employees WHERE id = ?', (employee_id,))
+            employee = self.cursor.fetchone()
+            if not employee:
+                logging.warning(f"Tentative de suppression d'un employé inexistant: ID={employee_id}")
+                return False
+            
+            # Supprimer l'employé
+            self.cursor.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
+            
+            # Les données associées seront supprimées automatiquement grâce aux contraintes ON DELETE CASCADE
+            
+            self.conn.commit()
+            logging.info(f"Employé supprimé avec succès: ID={employee_id}")
+            return True
+        except sqlite3.Error as e:
+            logging.error(f"Erreur lors de la suppression d'un employé: {e}")
+            self.conn.rollback()
+            return False
+        finally:
+            self.disconnect()
+    
     # Méthodes pour les données de visage
     def add_face_data(self, employee_id, image_path):
         """Ajouter une image de visage pour un employé"""

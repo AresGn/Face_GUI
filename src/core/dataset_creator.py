@@ -4,6 +4,7 @@ import logging
 import datetime
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QImage
+from utils.config import config
 
 # Configuration du logger
 logging.basicConfig(filename='dataset_creation.log', level=logging.INFO,
@@ -18,10 +19,66 @@ class DatasetCreator:
         # Vérifier si le fichier existe, sinon créer le répertoire data
         if not os.path.exists(cascade_path):
             os.makedirs(os.path.dirname(cascade_path), exist_ok=True)
-            # Télécharger le classificateur si nécessaire (à implémenter)
-            logging.warning(f"Le fichier {cascade_path} n'existe pas. Vous devez le télécharger.")
+            # Télécharger le classificateur si nécessaire
+            try:
+                from urllib.request import urlretrieve
+                url = 'https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml'
+                urlretrieve(url, cascade_path)
+                logging.info(f"Classificateur téléchargé depuis: {url}")
+            except Exception as e:
+                logging.error(f"Erreur lors du téléchargement du classificateur: {e}")
         
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        
+        # Paramètres optimisés pour améliorer la détection
+        self.min_neighbors = 6  # Augmenté pour réduire les faux positifs
+        self.scale_factor = 1.2  # Valeur équilibrée pour vitesse/précision
+        self.min_size = (80, 80)  # Taille minimale du visage à détecter (augmentée)
+    
+    def get_camera_source(self):
+        """Retourne la source de caméra appropriée en fonction de la configuration"""
+        use_droid_cam = config.get('camera.use_droid_cam', False)
+        droid_cam_url = config.get('camera.droid_cam_url', 'http://192.168.1.X:4747/video')
+        camera_index = config.get('camera.index', 0)
+        
+        if use_droid_cam and droid_cam_url:
+            logging.info(f"Utilisation de DroidCam comme source: {droid_cam_url}")
+            return droid_cam_url
+        else:
+            logging.info(f"Utilisation de la webcam par défaut: index {camera_index}")
+            return camera_index
+    
+    def check_false_detection(self, frame_height, frame_width, x, y, w, h):
+        """
+        Vérifie si une détection est probablement un faux positif
+        
+        Args:
+            frame_height (int): Hauteur de l'image
+            frame_width (int): Largeur de l'image
+            x, y, w, h: Coordonnées et dimensions du rectangle
+            
+        Returns:
+            bool: True si la détection est valide, False si c'est probablement un faux positif
+        """
+        # 1. Vérifier si le rectangle dépasse les limites de l'image
+        if x < 0 or y < 0 or x + w > frame_width or y + h > frame_height:
+            return False
+        
+        # 2. Vérifier les proportions du visage (hauteur/largeur)
+        aspect_ratio = h / w
+        if aspect_ratio < 0.8 or aspect_ratio > 1.8:  # Proportions normales entre 0.8 et 1.8
+            return False
+            
+        # 3. Taille du visage par rapport à l'image
+        face_area = w * h
+        frame_area = frame_height * frame_width
+        face_ratio = face_area / frame_area
+        
+        # Si le visage occupe plus de 60% ou moins de 1% de l'image, c'est suspect
+        if face_ratio > 0.6 or face_ratio < 0.01:
+            return False
+        
+        return True
     
     def create_dataset(self, employee_id, max_images=300):
         """
@@ -37,11 +94,19 @@ class DatasetCreator:
         # Créer le répertoire pour stocker les images
         path = os.path.join('data', 'faces', str(employee_id))
         os.makedirs(path, exist_ok=True)
+        logging.info(f"Répertoire créé: {path}")
         
-        # Démarrer la capture vidéo
-        vid = cv2.VideoCapture(0)
+        # Créer aussi le répertoire pour les classifieurs si nécessaire
+        classifiers_dir = os.path.join('data', 'classifiers')
+        os.makedirs(classifiers_dir, exist_ok=True)
+        logging.info(f"Répertoire classificateurs créé: {classifiers_dir}")
+        
+        # Démarrer la capture vidéo avec la source appropriée
+        camera_source = self.get_camera_source()
+        vid = cv2.VideoCapture(camera_source)
+        
         if not vid.isOpened():
-            logging.error("Impossible d'ouvrir la caméra")
+            logging.error(f"Impossible d'ouvrir la caméra source: {camera_source}")
             return 0
         
         num_of_images = 0
@@ -54,19 +119,36 @@ class DatasetCreator:
                 logging.error("Échec de la capture d'image")
                 break
             
+            # Obtenir les dimensions de l'image
+            frame_height, frame_width = img.shape[:2]
+            
             # Convertir l'image en niveaux de gris
             gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
-            # Détecter les visages
-            faces = self.face_cascade.detectMultiScale(gray_img, scaleFactor=1.1, minNeighbors=5)
+            # Améliorer le contraste
+            gray_img = cv2.equalizeHist(gray_img)
+            
+            # Détecter les visages avec des paramètres optimisés
+            faces = self.face_cascade.detectMultiScale(
+                gray_img, 
+                scaleFactor=self.scale_factor, 
+                minNeighbors=self.min_neighbors,
+                minSize=self.min_size
+            )
+            
+            # Filtrer les fausses détections
+            valid_faces = []
+            for (x, y, w, h) in faces:
+                if self.check_false_detection(frame_height, frame_width, x, y, w, h):
+                    valid_faces.append((x, y, w, h))
             
             # Extraire et enregistrer le visage
             new_img = None
-            for (x, y, w, h) in faces:
+            for (x, y, w, h) in valid_faces:
                 # Dessiner un rectangle autour du visage
-                cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 0), 2)
-                cv2.putText(img, "Visage détecté", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255))
-                cv2.putText(img, f"{num_of_images} images capturées", (x, y+h+20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255))
+                cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                cv2.putText(img, "Visage détecté", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0))
+                cv2.putText(img, f"{num_of_images} images capturées", (x, y+h+20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0))
                 
                 # Extraire la région du visage
                 new_img = img[y:y+h, x:x+w]
@@ -124,11 +206,19 @@ class DatasetCreatorThread(QThread):
             # Créer le répertoire pour stocker les images
             path = os.path.join('data', 'faces', str(self.employee_id))
             os.makedirs(path, exist_ok=True)
+            logging.info(f"Répertoire créé: {path}")
             
-            # Démarrer la capture vidéo
-            vid = cv2.VideoCapture(0)
+            # Créer aussi le répertoire pour les classifieurs si nécessaire
+            classifiers_dir = os.path.join('data', 'classifiers')
+            os.makedirs(classifiers_dir, exist_ok=True)
+            logging.info(f"Répertoire classificateurs créé: {classifiers_dir}")
+            
+            # Démarrer la capture vidéo avec la source appropriée
+            camera_source = self.creator.get_camera_source()
+            vid = cv2.VideoCapture(camera_source)
+            
             if not vid.isOpened():
-                self.error_signal.emit("Impossible d'ouvrir la caméra")
+                self.error_signal.emit(f"Impossible d'ouvrir la caméra source: {camera_source}")
                 return
             
             num_of_images = 0
@@ -141,15 +231,32 @@ class DatasetCreatorThread(QThread):
                     self.error_signal.emit("Échec de la capture d'image")
                     break
                 
+                # Obtenir les dimensions de l'image
+                frame_height, frame_width = img.shape[:2]
+                
                 # Convertir l'image en niveaux de gris
                 gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 
-                # Détecter les visages
-                faces = self.creator.face_cascade.detectMultiScale(gray_img, scaleFactor=1.1, minNeighbors=5)
+                # Améliorer le contraste
+                gray_img = cv2.equalizeHist(gray_img)
+                
+                # Détecter les visages avec des paramètres optimisés
+                faces = self.creator.face_cascade.detectMultiScale(
+                    gray_img, 
+                    scaleFactor=self.creator.scale_factor, 
+                    minNeighbors=self.creator.min_neighbors,
+                    minSize=self.creator.min_size
+                )
+                
+                # Filtrer les fausses détections
+                valid_faces = []
+                for (x, y, w, h) in faces:
+                    if self.creator.check_false_detection(frame_height, frame_width, x, y, w, h):
+                        valid_faces.append((x, y, w, h))
                 
                 # Extraire et enregistrer le visage
                 new_img = None
-                for (x, y, w, h) in faces:
+                for (x, y, w, h) in valid_faces:
                     # Dessiner un rectangle autour du visage
                     cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
                     cv2.putText(img, "Visage détecté", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0))

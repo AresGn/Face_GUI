@@ -11,6 +11,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QTimer
 # Importer les modules core et database
 from core.face_detector import face_detector
 from database.db_manager import db_manager
+from utils.config import config
 
 # Configuration du logger
 logging.basicConfig(filename='recognition.log', level=logging.INFO,
@@ -25,81 +26,282 @@ class RecognitionThread(QThread):
     def __init__(self):
         super().__init__()
         self.running = False
-        self.face_cascade = cv2.CascadeClassifier(os.path.join('data', 'haarcascade_frontalface_default.xml'))
+        
+        # Utiliser un classificateur plus robuste pour la détection de visage
+        cascade_path = os.path.join('data', 'haarcascade_frontalface_default.xml')
+        self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        
+        # Précharger tous les classificateurs au démarrage
+        self.recognizers = {}
+        self.preload_recognizers()
+        
+        # Paramètres pour améliorer la détection
+        self.min_neighbors = 6  # Augmenté pour réduire les faux positifs
+        self.scale_factor = 1.2  # Valeur équilibrée pour vitesse/précision
+        self.min_size = (80, 80)  # Taille minimale du visage à détecter (augmentée)
+        
+        # Couleurs pour les rectangles
+        self.green_color = (0, 255, 0)  # Visage reconnu (BGR)
+        self.red_color = (0, 0, 255)    # Visage inconnu (BGR)
+        
+        # Configuration de la caméra
+        self.use_droid_cam = config.get('camera.use_droid_cam', False)
+        self.droid_cam_url = config.get('camera.droid_cam_url', 'http://192.168.1.X:4747/video')
+        self.camera_index = config.get('camera.index', 0)
     
-    def run(self):
-        """Exécuter la reconnaissance faciale"""
-        self.running = True
+    def get_camera_source(self):
+        """Retourne la source de caméra appropriée en fonction de la configuration"""
+        if self.use_droid_cam and self.droid_cam_url:
+            logging.info(f"Utilisation de DroidCam comme source: {self.droid_cam_url}")
+            return self.droid_cam_url
+        else:
+            logging.info(f"Utilisation de la webcam par défaut: index {self.camera_index}")
+            return self.camera_index
+    
+    def check_false_detection(self, frame_height, frame_width, x, y, w, h):
+        """
+        Vérifie si une détection est probablement un faux positif
         
-        # Ouvrir la caméra
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            self.error_signal.emit("Impossible d'ouvrir la caméra")
-            return
+        Args:
+            frame_height (int): Hauteur de l'image
+            frame_width (int): Largeur de l'image
+            x, y, w, h: Coordonnées et dimensions du rectangle
+            
+        Returns:
+            bool: True si la détection est valide, False si c'est probablement un faux positif
+        """
+        # 1. Vérifier si le rectangle dépasse les limites de l'image
+        if x < 0 or y < 0 or x + w > frame_width or y + h > frame_height:
+            return False
         
-        while self.running and not self.isInterruptionRequested():
-            ret, frame = cap.read()
-            if not ret:
-                self.error_signal.emit("Échec de la capture d'image")
-                break
+        # 2. Vérifier les proportions du visage (hauteur/largeur)
+        aspect_ratio = h / w
+        if aspect_ratio < 0.8 or aspect_ratio > 1.8:  # Proportions normales entre 0.8 et 1.8
+            return False
             
-            # Convertir l'image pour l'affichage
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_frame.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        # 3. Taille du visage par rapport à l'image
+        face_area = w * h
+        frame_area = frame_height * frame_width
+        face_ratio = face_area / frame_area
+        
+        # Si le visage occupe plus de 60% ou moins de 1% de l'image, c'est suspect
+        if face_ratio > 0.6 or face_ratio < 0.01:
+            return False
+        
+        return True
+    
+    def preload_recognizers(self):
+        """Précharger tous les classificateurs des employés"""
+        try:
+            # Récupérer tous les employés
+            employees = db_manager.get_all_employees()
+            logging.info(f"Tentative de préchargement des classificateurs pour {len(employees)} employés")
             
-            # Émettre le signal de mise à jour de l'image
-            self.update_frame_signal.emit(qt_image)
+            # Vérifier le répertoire des classificateurs
+            classifiers_dir = os.path.join('data', 'classifiers')
+            if not os.path.exists(classifiers_dir):
+                os.makedirs(classifiers_dir, exist_ok=True)
+                logging.warning(f"Le répertoire {classifiers_dir} n'existait pas et a été créé")
             
-            # Détecter les visages
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
-            
-            # Si un visage est détecté, essayer de le reconnaître
-            for (x, y, w, h) in faces:
-                roi_gray = gray[y:y+h, x:x+w]
+            loaded_count = 0
+            for employee in employees:
+                employee_id = employee['id']
                 
-                # Liste tous les employés et essaie de reconnaître chacun
-                employees = db_manager.get_all_employees()
-                
-                for employee in employees:
-                    employee_id = employee['id']
-                    
-                    # Vérifier si le fichier du classificateur existe
-                    classifier_path = os.path.join('data', 'classifiers', f'{employee_id}_classifier.xml')
-                    if not os.path.exists(classifier_path):
-                        continue
-                    
+                # Vérifier si le fichier du classificateur existe
+                classifier_path = os.path.join('data', 'classifiers', f'{employee_id}_classifier.xml')
+                if os.path.exists(classifier_path):
                     try:
                         # Charger le classificateur
                         recognizer = cv2.face.LBPHFaceRecognizer_create()
                         recognizer.read(classifier_path)
                         
-                        # Prédire l'identité
-                        id_pred, confidence = recognizer.predict(roi_gray)
-                        confidence = 100 - int(confidence)
-                        
-                        # Si la confiance est suffisante, émettre le signal de reconnaissance
-                        if confidence > 50:
-                            employee['confidence'] = confidence
-                            employee['time'] = datetime.datetime.now().strftime("%H:%M:%S")
-                            self.recognition_signal.emit(employee)
-                            break  # Arrêter après la première reconnaissance
+                        # Stocker le classificateur et les infos de l'employé
+                        self.recognizers[employee_id] = {
+                            'recognizer': recognizer,
+                            'employee': employee
+                        }
+                        loaded_count += 1
+                        logging.info(f"Classificateur chargé avec succès pour {employee['prenom']} {employee['nom']} (ID: {employee_id})")
                     except Exception as e:
-                        logging.error(f"Erreur lors de la reconnaissance: {e}")
+                        logging.error(f"Erreur lors du chargement du classificateur pour l'employé {employee_id}: {e}")
+                else:
+                    logging.warning(f"Aucun classificateur trouvé pour {employee['prenom']} {employee['nom']} (ID: {employee_id})")
             
-            # Attendre un peu
-            cv2.waitKey(30)
+            if loaded_count == 0 and len(employees) > 0:
+                logging.warning("Aucun classificateur n'a pu être chargé alors qu'il y a des employés dans la base de données")
+            
+            logging.info(f"Préchargement terminé: {loaded_count}/{len(employees)} classificateurs chargés")
+        except Exception as e:
+            logging.error(f"Erreur générale lors du préchargement des classificateurs: {e}")
+    
+    def run(self):
+        """Exécuter la reconnaissance faciale"""
+        self.running = True
+        cap = None
         
-        # Libérer les ressources
-        cap.release()
+        try:
+            # Ouvrir la caméra avec la source appropriée
+            camera_source = self.get_camera_source()
+            logging.info(f"Ouverture de la caméra: {camera_source}")
+            cap = cv2.VideoCapture(camera_source)
+            
+            if not cap.isOpened():
+                self.error_signal.emit(f"Impossible d'ouvrir la caméra: {camera_source}")
+                return
+            
+            # Réduire la résolution pour accélérer le traitement
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            
+            # Compteur pour ne pas traiter toutes les frames
+            frame_count = 0
+            
+            # Dictionnaire pour suivre les détections consécutives
+            consecutive_detections = {}
+            
+            while self.running and not self.isInterruptionRequested():
+                try:
+                    ret, frame = cap.read()
+                    if not ret:
+                        logging.warning("Échec de la capture d'image")
+                        # Ne pas quitter immédiatement, tenter encore quelques fois
+                        if frame_count % 10 == 0:  # Tous les 10 frames, émettre une erreur
+                            self.error_signal.emit("Problème avec la caméra - essai de récupération")
+                        continue
+                    
+                    # Obtenir les dimensions de l'image
+                    frame_height, frame_width = frame.shape[:2]
+                    
+                    # Création d'une copie pour l'affichage
+                    display_frame = frame.copy()
+                    
+                    # Convertir l'image en niveaux de gris pour la détection
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    
+                    # Améliorer le contraste pour une meilleure détection
+                    gray = cv2.equalizeHist(gray)
+                    
+                    # Traiter uniquement une frame sur 2 pour réduire la charge CPU
+                    process_frame = True
+                    frame_count += 1
+                    if frame_count % 2 != 0:
+                        process_frame = False
+                    
+                    if process_frame:
+                        # Détecter les visages avec des paramètres optimisés
+                        faces = self.face_cascade.detectMultiScale(
+                            gray, 
+                            scaleFactor=self.scale_factor, 
+                            minNeighbors=self.min_neighbors,
+                            minSize=self.min_size
+                        )
+                        
+                        # Filtrer les fausses détections
+                        valid_faces = []
+                        for (x, y, w, h) in faces:
+                            if self.check_false_detection(frame_height, frame_width, x, y, w, h):
+                                valid_faces.append((x, y, w, h))
+                        
+                        # Si un visage est détecté, essayer de le reconnaître
+                        for (x, y, w, h) in valid_faces:
+                            roi_gray = gray[y:y+h, x:x+w]
+                            
+                            best_match = None
+                            best_confidence = 0
+                            best_employee_id = None
+                            
+                            # Utiliser les classificateurs préchargés
+                            for employee_id, data in self.recognizers.items():
+                                recognizer = data['recognizer']
+                                employee = data['employee']
+                                
+                                try:
+                                    # Prédire l'identité
+                                    id_pred, confidence = recognizer.predict(roi_gray)
+                                    confidence = 100 - int(confidence)
+                                    
+                                    # Si la confiance est suffisante et meilleure que précédemment
+                                    if confidence > 60 and confidence > best_confidence:  # Seuil à 60
+                                        best_confidence = confidence
+                                        best_employee_id = employee_id
+                                        # Créer une copie de l'employé pour éviter de modifier l'original
+                                        best_match = employee.copy()
+                                        best_match['confidence'] = confidence
+                                        best_match['time'] = datetime.datetime.now().strftime("%H:%M:%S")
+                                except Exception as e:
+                                    logging.error(f"Erreur lors de la reconnaissance pour l'employé {employee_id}: {e}")
+                            
+                            # Incrémenter le compteur de détections consécutives pour cet employé
+                            if best_employee_id is not None:
+                                if best_employee_id not in consecutive_detections:
+                                    consecutive_detections[best_employee_id] = 1
+                                else:
+                                    consecutive_detections[best_employee_id] += 1
+                                
+                                # Réinitialiser les compteurs des autres employés
+                                for emp_id in consecutive_detections:
+                                    if emp_id != best_employee_id:
+                                        consecutive_detections[emp_id] = 0
+                                
+                                # Si détecté consécutivement plusieurs fois, émettre le signal
+                                required_detections = 5  # Au moins 5 détections consécutives
+                                if consecutive_detections[best_employee_id] >= required_detections:
+                                    logging.info(f"Détection confirmée après {required_detections} frames pour ID={best_employee_id}")
+                                    # On réinitialise pour éviter des détections multiples
+                                    consecutive_detections[best_employee_id] = 0
+                                    # On émet le signal
+                                    self.recognition_signal.emit(best_match)
+                            
+                            # Dessiner un rectangle sur le visage
+                            if best_match:
+                                # Rectangle vert pour un visage reconnu
+                                cv2.rectangle(display_frame, (x, y), (x + w, y + h), self.green_color, 2)
+                                text = f"{best_match['prenom']} {best_match['nom']} ({best_match['confidence']}%)"
+                                cv2.putText(display_frame, text, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.green_color, 2)
+                            else:
+                                # Rectangle rouge pour un visage inconnu
+                                cv2.rectangle(display_frame, (x, y), (x + w, y + h), self.red_color, 2)
+                                cv2.putText(display_frame, "Inconnu", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.red_color, 2)
+                    
+                    # Convertir l'image pour l'affichage dans Qt
+                    rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+                    h, w, ch = rgb_frame.shape
+                    bytes_per_line = ch * w
+                    qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                    
+                    # Émettre le signal de mise à jour de l'image
+                    self.update_frame_signal.emit(qt_image)
+                    
+                    # Vérifier si le thread doit être arrêté
+                    if not self.running or self.isInterruptionRequested():
+                        logging.info("Interruption détectée dans la boucle de traitement")
+                        break
+                    
+                    # Attente minimale
+                    cv2.waitKey(30)
+                
+                except Exception as e:
+                    logging.error(f"Erreur lors du traitement d'une frame: {e}")
+                    self.error_signal.emit(f"Erreur de traitement: {str(e)}")
+            
+            logging.info("Boucle de reconnaissance terminée")
+        
+        except Exception as e:
+            logging.error(f"Erreur générale dans le thread de reconnaissance: {e}")
+            self.error_signal.emit(f"Erreur générale: {str(e)}")
+        
+        finally:
+            # S'assurer que les ressources sont libérées
+            if cap is not None and cap.isOpened():
+                cap.release()
+            logging.info("Ressources de caméra libérées")
     
     def stop(self):
-        """Arrêter la reconnaissance faciale"""
+        """Arrêter le thread de reconnaissance"""
+        logging.info("Demande d'arrêt du thread de reconnaissance")
         self.running = False
         self.requestInterruption()
-        self.wait()
+        self.wait(1000)
 
 class RecognitionPage(QWidget):
     """Page de reconnaissance faciale"""
@@ -292,6 +494,10 @@ class RecognitionPage(QWidget):
     
     def start_recognition(self):
         """Démarrer la reconnaissance faciale"""
+        # Recharger la liste des employés au démarrage de la reconnaissance
+        self.results_list.clear()
+        self.load_employees_list()
+        
         # Créer et démarrer le thread de reconnaissance
         self.recognition_thread = RecognitionThread()
         
@@ -319,10 +525,49 @@ class RecognitionPage(QWidget):
     def stop_recognition(self):
         """Arrêter la reconnaissance faciale"""
         if self.recognition_thread and self.recognition_thread.isRunning():
-            # Arrêter le thread
-            self.recognition_thread.stop()
+            try:
+                # Désactiver les boutons pendant l'arrêt
+                self.start_btn.setEnabled(False)
+                self.stop_btn.setEnabled(False)
+                
+                # Mettre à jour le statut
+                self.status_label.setText("Arrêt en cours...")
+                
+                # Signaler l'arrêt du thread
+                self.recognition_thread.stop()
+                
+                # Créer un timer pour vérifier l'état du thread après un court délai
+                # et le terminer si nécessaire, sans bloquer l'interface
+                QTimer.singleShot(1000, self.finalize_thread_stop)
+                
+                # Journal
+                logging.info("Arrêt de la reconnaissance faciale initié")
+            except Exception as e:
+                logging.error(f"Erreur lors de l'arrêt de la reconnaissance: {e}")
+                # En cas d'erreur, réactiver le bouton de démarrage
+                self.start_btn.setEnabled(True)
+                self.stop_btn.setEnabled(False)
+                self.status_label.setText("Erreur lors de l'arrêt")
+        else:
+            # Si aucun thread n'est en cours, réactiver simplement le bouton de démarrage
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.status_label.setText("Reconnaissance arrêtée")
+    
+    def finalize_thread_stop(self):
+        """Finaliser l'arrêt du thread après un délai"""
+        try:
+            if self.recognition_thread:
+                if self.recognition_thread.isRunning():
+                    logging.warning("Le thread ne s'est pas arrêté normalement, forçage de l'arrêt")
+                    # Terminer le thread si toujours en cours d'exécution
+                    self.recognition_thread.terminate()
+                    self.recognition_thread.wait(500)  # Court délai après terminate()
+                
+                # Nettoyer les ressources
+                self.recognition_thread = None
             
-            # Activer le bouton de démarrage et désactiver le bouton d'arrêt
+            # Réactiver le bouton de démarrage
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             
@@ -330,7 +575,10 @@ class RecognitionPage(QWidget):
             self.status_label.setText("Reconnaissance arrêtée")
             
             # Journal
-            logging.info("Reconnaissance faciale arrêtée")
+            logging.info("Reconnaissance faciale arrêtée avec succès")
+        except Exception as e:
+            logging.error(f"Erreur lors de la finalisation de l'arrêt du thread: {e}")
+            self.status_label.setText("Erreur lors de l'arrêt")
     
     def update_frame(self, image):
         """Mettre à jour l'image de la caméra"""
@@ -346,6 +594,9 @@ class RecognitionPage(QWidget):
         confidence = employee['confidence']
         time = employee['time']
         
+        # Ajouter un log de débogage pour voir ce que nous recevons
+        logging.info(f"Reconnaissance reçue: ID={employee_id}, Nom={employee.get('prenom', 'N/A')} {employee.get('nom', 'N/A')}, Confiance={confidence}%, Heure={time}")
+        
         # Vérifier si la reconnaissance n'est pas un doublon récent (moins de 10 secondes)
         current_time = datetime.datetime.now()
         if employee_id in self.recognized_employees:
@@ -357,18 +608,41 @@ class RecognitionPage(QWidget):
         # Mettre à jour le timestamp de reconnaissance
         self.recognized_employees[employee_id] = current_time
         
+        # Si la liste est vide, nous devons recharger la liste des employés
+        if self.results_list.count() == 0:
+            self.load_employees_list()
+        
+        # Récupérer les détails de l'employé reconnu pour l'affichage
+        prenom = employee.get('prenom', '')
+        nom = employee.get('nom', '')
+        
+        # Flag pour savoir si l'employé a été trouvé dans la liste
+        found = False
+        
         # Trouver l'élément dans la liste correspondant à l'employé
         for i in range(self.results_list.count()):
             item = self.results_list.item(i)
-            if item.data(Qt.UserRole) == employee_id:
+            if item and item.data(Qt.UserRole) == employee_id:
                 # Mettre à jour le texte de l'élément avec "Présent" et l'heure
-                prenom_nom = item.text().split('(')[0].strip()
+                prenom_nom = f"{prenom} {nom}"
+                if not prenom_nom.strip():  # Si le nom/prénom est vide, utiliser le texte existant
+                    prenom_nom = item.text().split('(')[0].strip()
                 item.setText(f"{prenom_nom} - Présent à {time}")
                 item.setForeground(QColor(32, 191, 107))  # Vert - couleur #20bf6b
+                found = True
                 break
         
+        # Si l'employé n'est pas trouvé dans la liste, ajouter un nouvel élément
+        if not found and prenom and nom:
+            item_text = f"{prenom} {nom} - Présent à {time}"
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.UserRole, employee_id)
+            item.setForeground(QColor(32, 191, 107))  # Vert
+            self.results_list.addItem(item)
+            logging.info(f"Nouvel employé ajouté à la liste: {item_text}")
+        
         # Journal
-        logging.info(f"Employé reconnu: ID={employee_id}, Confiance={confidence}%, Heure={time}")
+        logging.info(f"Employé reconnu et affiché: ID={employee_id}, Confiance={confidence}%, Heure={time}")
         
         # Ajouter au modèle d'assiduité (pour l'enregistrement futur)
         attendance_data = {
@@ -451,11 +725,50 @@ class RecognitionPage(QWidget):
     
     def closeEvent(self, event):
         """Gérer l'événement de fermeture de la page"""
-        # Arrêter le thread de reconnaissance
-        if self.recognition_thread and self.recognition_thread.isRunning():
-            self.recognition_thread.stop()
-        
-        event.accept()
+        try:
+            logging.info("Fermeture de la page de reconnaissance")
+            
+            # Arrêter proprement le thread de reconnaissance
+            if self.recognition_thread and self.recognition_thread.isRunning():
+                # D'abord, signaler l'arrêt sans bloquer
+                self.recognition_thread.stop()
+                
+                # Créer un timer pour compléter la fermeture après un court délai
+                # Cela permet d'éviter un blocage de l'interface
+                cleanup_timer = QTimer(self)
+                cleanup_timer.setSingleShot(True)
+                cleanup_timer.timeout.connect(self.complete_cleanup)
+                cleanup_timer.start(500)  # 500ms
+                
+                # Ne pas bloquer l'événement de fermeture
+                event.accept()
+            else:
+                # Si pas de thread en cours, accepter immédiatement
+                event.accept()
+        except Exception as e:
+            logging.error(f"Erreur lors de la fermeture de la page: {e}")
+            event.accept()  # Accepter quand même pour éviter de bloquer
+    
+    def complete_cleanup(self):
+        """Finaliser le nettoyage des ressources après un délai"""
+        try:
+            logging.info("Finalisation du nettoyage des ressources")
+            
+            # Forcer l'arrêt du thread s'il est toujours en cours
+            if self.recognition_thread and self.recognition_thread.isRunning():
+                logging.warning("Forcer l'arrêt du thread qui n'a pas répondu")
+                self.recognition_thread.terminate()
+                self.recognition_thread.wait(500)
+                
+                # Libérer explicitement les ressources OpenCV
+                cv2.destroyAllWindows()
+                
+                # Supprimer le thread
+                self.recognition_thread = None
+                
+            logging.info("Nettoyage des ressources terminé")
+        except Exception as e:
+            logging.error(f"Erreur lors du nettoyage final: {e}")
     
     def load_employees_list(self):
         """Charger la liste des employés dans la liste des résultats"""

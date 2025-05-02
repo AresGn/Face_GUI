@@ -52,9 +52,22 @@ class FaceClassifier:
                     img = Image.open(img_path).convert('L')
                     # Convertir l'image en tableau numpy
                     img_np = np.array(img, 'uint8')
-                    # Extraire l'ID à partir du nom du fichier
-                    # Le format du nom de fichier est "num_timestamp_employee_id.jpg"
-                    face_id = int(pic.split('_')[0])
+                    
+                    # Extraction de l'ID plus flexible
+                    try:
+                        # Essayer d'extraire l'ID à partir du nom du fichier
+                        # Formats supportés: "num_timestamp_employee_id.jpg" ou "image_XXXX.jpg"
+                        if '_' in pic:
+                            # Format: "num_timestamp_employee_id.jpg"
+                            face_id = int(pic.split('_')[0])
+                        else:
+                            # Format alternatif (ex: "image_0001.jpg")
+                            face_id = employee_id
+                    except (ValueError, IndexError):
+                        # En cas d'erreur, utiliser l'ID de l'employé
+                        logging.warning(f"Format de nom de fichier non reconnu: {pic}, utilisation de l'ID employé")
+                        face_id = employee_id
+                    
                     # Ajouter l'image et l'ID aux listes
                     faces.append(img_np)
                     ids.append(face_id)
@@ -70,15 +83,35 @@ class FaceClassifier:
             ids = np.array(ids)
             
             # Créer et entraîner le classificateur
-            clf = cv2.face.LBPHFaceRecognizer_create()
-            clf.train(faces, ids)
-            
-            # Enregistrer le classificateur
-            classifier_path = os.path.join('data', 'classifiers', f'{employee_id}_classifier.xml')
-            clf.write(classifier_path)
-            
-            logging.info(f"Classificateur entraîné et enregistré pour l'employé ID={employee_id}")
-            return True
+            try:
+                logging.info(f"Début de l'entraînement avec {len(faces)} images et {len(ids)} IDs")
+                logging.debug(f"Types de données: faces={type(faces[0])}, ids={type(ids[0])}")
+                
+                # Vérifier que toutes les images ont la même taille
+                shapes = [face.shape for face in faces]
+                if len(set(shapes)) > 1:
+                    shapes_str = ', '.join([f"{s}" for s in set(shapes)])
+                    logging.warning(f"Attention: images de tailles différentes: {shapes_str}")
+                
+                # Vérifier que les ids sont tous identiques
+                unique_ids = set(ids)
+                logging.info(f"IDs uniques: {unique_ids}")
+                
+                # Créer et entraîner le classificateur
+                clf = cv2.face.LBPHFaceRecognizer_create()
+                clf.train(faces, ids)
+                
+                # Enregistrer le classificateur
+                classifier_path = os.path.join('data', 'classifiers', f'{employee_id}_classifier.xml')
+                clf.write(classifier_path)
+                
+                logging.info(f"Classificateur entraîné et enregistré pour l'employé ID={employee_id}")
+                return True
+            except Exception as e:
+                error_msg = f"Erreur pendant l'entraînement du modèle: {str(e)}"
+                logging.error(error_msg)
+                logging.exception("Détail de l'erreur:")
+                return False
         
         except Exception as e:
             logging.error(f"Erreur lors de l'entraînement du classificateur: {e}")
@@ -113,16 +146,29 @@ class ClassifierTrainerThread(QThread):
             
             # Vérifier si le répertoire existe
             if not os.path.exists(path):
-                self.error_signal.emit(f"Le répertoire {path} n'existe pas")
+                error_msg = f"Le répertoire {path} n'existe pas"
+                logging.error(error_msg)
+                self.error_signal.emit(error_msg)
                 self.finished_signal.emit(False)
                 return
             
             # Lister tous les fichiers d'images
             pictures = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
             if not pictures:
-                self.error_signal.emit(f"Aucune image trouvée dans {path}")
+                error_msg = f"Aucune image trouvée dans {path}"
+                logging.error(error_msg)
+                self.error_signal.emit(error_msg)
                 self.finished_signal.emit(False)
                 return
+            
+            # Journaliser le nombre d'images trouvées
+            logging.info(f"Nombre d'images trouvées: {len(pictures)}")
+            logging.debug(f"Liste des images: {pictures[:5]}...")
+            
+            # Créer les répertoires nécessaires pour les classificateurs
+            classifiers_dir = os.path.join('data', 'classifiers')
+            os.makedirs(classifiers_dir, exist_ok=True)
+            logging.info(f"Répertoire des classificateurs: {classifiers_dir}")
             
             # Préparer les données d'entraînement
             faces = []
@@ -137,9 +183,22 @@ class ClassifierTrainerThread(QThread):
                     img = Image.open(img_path).convert('L')
                     # Convertir l'image en tableau numpy
                     img_np = np.array(img, 'uint8')
-                    # Extraire l'ID à partir du nom du fichier
-                    # Le format du nom de fichier est "num_timestamp_employee_id.jpg"
-                    face_id = int(pic.split('_')[0])
+                    
+                    # Extraction de l'ID plus flexible
+                    try:
+                        # Essayer d'extraire l'ID à partir du nom du fichier
+                        # Formats supportés: "num_timestamp_employee_id.jpg" ou "image_XXXX.jpg"
+                        if '_' in pic:
+                            # Format: "num_timestamp_employee_id.jpg"
+                            face_id = int(pic.split('_')[0])
+                        else:
+                            # Format alternatif (ex: "image_0001.jpg")
+                            face_id = self.employee_id
+                    except (ValueError, IndexError):
+                        # En cas d'erreur, utiliser l'ID de l'employé
+                        logging.warning(f"Format de nom de fichier non reconnu: {pic}, utilisation de l'ID employé")
+                        face_id = self.employee_id
+                    
                     # Ajouter l'image et l'ID aux listes
                     faces.append(img_np)
                     ids.append(face_id)
@@ -160,18 +219,42 @@ class ClassifierTrainerThread(QThread):
             ids = np.array(ids)
             
             # Créer et entraîner le classificateur
-            clf = cv2.face.LBPHFaceRecognizer_create()
-            clf.train(faces, ids)
-            
-            # Enregistrer le classificateur
-            classifier_path = os.path.join('data', 'classifiers', f'{self.employee_id}_classifier.xml')
-            clf.write(classifier_path)
-            
-            logging.info(f"Classificateur entraîné et enregistré pour l'employé ID={self.employee_id}")
-            self.finished_signal.emit(True)
-        
+            try:
+                logging.info(f"Début de l'entraînement avec {len(faces)} images et {len(ids)} IDs")
+                logging.debug(f"Types de données: faces={type(faces[0])}, ids={type(ids[0])}")
+                
+                # Vérifier que toutes les images ont la même taille
+                shapes = [face.shape for face in faces]
+                if len(set(shapes)) > 1:
+                    shapes_str = ', '.join([f"{s}" for s in set(shapes)])
+                    logging.warning(f"Attention: images de tailles différentes: {shapes_str}")
+                
+                # Vérifier que les ids sont tous identiques
+                unique_ids = set(ids)
+                logging.info(f"IDs uniques: {unique_ids}")
+                
+                # Créer et entraîner le classificateur
+                clf = cv2.face.LBPHFaceRecognizer_create()
+                clf.train(faces, ids)
+                
+                # Enregistrer le classificateur
+                classifier_path = os.path.join('data', 'classifiers', f'{self.employee_id}_classifier.xml')
+                clf.write(classifier_path)
+                
+                logging.info(f"Classificateur entraîné et enregistré pour l'employé ID={self.employee_id}")
+                self.finished_signal.emit(True)
+            except Exception as e:
+                error_msg = f"Erreur pendant l'entraînement du modèle: {str(e)}"
+                logging.error(error_msg)
+                logging.exception("Détail de l'erreur:")
+                self.error_signal.emit(error_msg)
+                self.finished_signal.emit(False)
+                
         except Exception as e:
-            self.error_signal.emit(f"Erreur lors de l'entraînement du classificateur: {e}")
+            error_msg = f"Erreur lors du traitement des images pour l'entraînement: {str(e)}"
+            logging.error(error_msg)
+            logging.exception("Détail de l'erreur:")
+            self.error_signal.emit(error_msg)
             self.finished_signal.emit(False)
 
 # Instance globale du classificateur
