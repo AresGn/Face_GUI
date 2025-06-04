@@ -37,11 +37,19 @@ class DatasetCreator:
     
     def get_camera_source(self):
         """Retourne la source de caméra appropriée en fonction de la configuration"""
+        use_esp32_cam = config.get('camera.use_esp32_cam', False)
         use_droid_cam = config.get('camera.use_droid_cam', False)
         droid_cam_url = config.get('camera.droid_cam_url', 'http://192.168.1.X:4747/video')
+        esp32_cam_ip = config.get('camera.esp32_cam_ip', '192.168.1.100')
+        esp32_cam_port = config.get('camera.esp32_cam_port', 80)
+        esp32_cam_stream_path = config.get('camera.esp32_cam_stream_path', '/stream')
         camera_index = config.get('camera.index', 0)
-        
-        if use_droid_cam and droid_cam_url:
+
+        if use_esp32_cam:
+            esp32_cam_url = f"http://{esp32_cam_ip}:{esp32_cam_port}{esp32_cam_stream_path}"
+            logging.info(f"Utilisation de l'ESP32-CAM comme source: {esp32_cam_url}")
+            return esp32_cam_url
+        elif use_droid_cam and droid_cam_url:
             logging.info(f"Utilisation de DroidCam comme source: {droid_cam_url}")
             return droid_cam_url
         else:

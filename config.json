@@ -1,6 +1,6 @@
 {
     "app": {
-        "name": "Syst\u00c3\u00a8me de reconnaissance faciale - CITEX SART",
+        "name": "Syst\u00c3\u00a8me de reconnaissance faciale - CBT SARL",
         "version": "1.0.0",
         "created_at": "2025-04-29 12:00:07"
     },
@@ -13,8 +13,13 @@
         "language": "fr"
     },
     "camera": {
-        "use_droid_cam": true,
-        "droid_cam_url": "http://192.168.43.78:4747/video",
+        "use_droid_cam": false,
+        "droid_cam_url": "http://192.168.43.85:4747/video",
+        "use_esp32_cam": false,
+        "esp32_cam_ip": "192.168.1.100",
+        "esp32_cam_port": 80,
+        "esp32_cam_stream_path": "/stream",
+        "esp32_cam_quality": 10,
         "index": 0
     },
     "detection": {
@@ -42,7 +47,7 @@
     },
     "export": {
         "default_format": "excel",
-        "company_name": "CITEX SART",
+        "company_name": "CITEX SARL",
         "report_title": "Rapport de pr\u00c3\u00a9sence des employ\u00c3\u00a9s"
     }
 }

@@ -8,24 +8,28 @@ import os
 # Assurez-vous que le répertoire src est dans le PYTHONPATH
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.utils.camera_config import configure_droidcam, list_available_cameras, set_default_camera
+from src.utils.camera_config import (configure_droidcam, list_available_cameras, set_default_camera,
+                                    configure_esp32cam, test_esp32cam_connection, get_esp32cam_info)
 
 def main():
     print("=== Configuration de la source vidéo ===")
     print("\n1. Utiliser DroidCam (smartphone Android/iOS)")
-    print("2. Utiliser la webcam du PC")
-    print("3. Afficher les caméras disponibles")
-    print("4. Quitter")
-    
-    choice = input("\nVotre choix (1-4): ").strip()
-    
+    print("2. Utiliser ESP32-CAM (module caméra Wi-Fi)")
+    print("3. Utiliser la webcam du PC")
+    print("4. Afficher les caméras disponibles")
+    print("5. Quitter")
+
+    choice = input("\nVotre choix (1-5): ").strip()
+
     if choice == "1":
         configure_droidcam_option()
     elif choice == "2":
-        configure_webcam_option()
+        configure_esp32cam_option()
     elif choice == "3":
-        show_available_cameras()
+        configure_webcam_option()
     elif choice == "4":
+        show_available_cameras()
+    elif choice == "5":
         print("Configuration annulée.")
         return
     else:
@@ -89,6 +93,80 @@ def configure_webcam_option():
     except ValueError:
         print("\nErreur: L'indice de la caméra doit être un nombre entier.")
         configure_webcam_option()
+
+def configure_esp32cam_option():
+    """Configuration de l'ESP32-CAM"""
+    print("\n=== Configuration ESP32-CAM ===")
+    print("Assurez-vous que votre ESP32-CAM est connecté au même réseau Wi-Fi")
+    print("et que le firmware ESP32-CAM_FaceRecognition.ino est installé.")
+
+    # Demander l'adresse IP
+    ip_address = input("\nAdresse IP de l'ESP32-CAM (ex: 192.168.1.100): ").strip()
+    if not ip_address:
+        print("Adresse IP requise.")
+        return
+
+    # Demander le port (optionnel)
+    port_input = input("Port (défaut: 80): ").strip()
+    port = 80
+    if port_input:
+        try:
+            port = int(port_input)
+        except ValueError:
+            print("Port invalide, utilisation du port 80 par défaut.")
+            port = 80
+
+    # Demander le chemin du flux (optionnel)
+    stream_path = input("Chemin du flux (défaut: /stream): ").strip()
+    if not stream_path:
+        stream_path = "/stream"
+
+    # Demander la qualité JPEG (optionnel)
+    quality_input = input("Qualité JPEG 1-63 (défaut: 10, plus bas = meilleure qualité): ").strip()
+    quality = 10
+    if quality_input:
+        try:
+            quality = int(quality_input)
+            if quality < 1 or quality > 63:
+                print("Qualité invalide, utilisation de 10 par défaut.")
+                quality = 10
+        except ValueError:
+            print("Qualité invalide, utilisation de 10 par défaut.")
+            quality = 10
+
+    print(f"\nTest de connexion à l'ESP32-CAM...")
+    print(f"URL: http://{ip_address}:{port}{stream_path}")
+
+    # Tester la connexion
+    success, message = test_esp32cam_connection(ip_address, port, stream_path)
+
+    if success:
+        print(f"✓ {message}")
+
+        # Demander confirmation
+        confirm = input("\nVoulez-vous enregistrer cette configuration ? (o/N): ").strip().lower()
+        if confirm in ['o', 'oui', 'y', 'yes']:
+            success, message = configure_esp32cam(ip_address, port, stream_path, quality, True)
+            if success:
+                print(f"✓ Configuration ESP32-CAM enregistrée avec succès!")
+                print(f"  - IP: {ip_address}")
+                print(f"  - Port: {port}")
+                print(f"  - Flux: {stream_path}")
+                print(f"  - Qualité: {quality}")
+            else:
+                print(f"✗ Erreur lors de l'enregistrement: {message}")
+        else:
+            print("Configuration annulée.")
+    else:
+        print(f"✗ {message}")
+        print("\nVérifiez que:")
+        print("- L'ESP32-CAM est allumé et connecté au Wi-Fi")
+        print("- L'adresse IP est correcte")
+        print("- Le firmware ESP32-CAM_FaceRecognition.ino est installé")
+        print("- Votre PC et l'ESP32-CAM sont sur le même réseau")
+
+    input("\nAppuyez sur Entrée pour continuer...")
+    main()
 
 def show_available_cameras():
     print("\n=== Caméras disponibles ===")

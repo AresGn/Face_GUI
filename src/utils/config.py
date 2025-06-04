@@ -12,7 +12,7 @@ CONFIG_FILE = 'config.json'
 # Configuration par défaut
 DEFAULT_CONFIG = {
     'app': {
-        'name': 'Système de reconnaissance faciale - CITEX SART',
+        'name': 'Système de reconnaissance faciale - CBT SARL',
         'version': '1.0.0'
     },
     'ui': {
@@ -24,6 +24,11 @@ DEFAULT_CONFIG = {
     'camera': {
         'use_droid_cam': False,
         'droid_cam_url': 'http://192.168.1.X:4747/video',
+        'use_esp32_cam': False,
+        'esp32_cam_ip': '192.168.1.100',
+        'esp32_cam_port': 80,
+        'esp32_cam_stream_path': '/stream',
+        'esp32_cam_quality': 10,
         'index': 0
     },
     'detection': {

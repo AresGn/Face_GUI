@@ -44,11 +44,19 @@ class FaceDetector:
         # Paramètres pour les caméras
         self.use_droid_cam = config.get('camera.use_droid_cam', False)
         self.droid_cam_url = config.get('camera.droid_cam_url', 'http://192.168.1.X:4747/video')
+        self.use_esp32_cam = config.get('camera.use_esp32_cam', False)
+        self.esp32_cam_ip = config.get('camera.esp32_cam_ip', '192.168.1.100')
+        self.esp32_cam_port = config.get('camera.esp32_cam_port', 80)
+        self.esp32_cam_stream_path = config.get('camera.esp32_cam_stream_path', '/stream')
         self.camera_index = config.get('camera.index', 0)
     
     def get_camera_source(self):
         """Retourne la source de caméra appropriée en fonction de la configuration"""
-        if self.use_droid_cam and self.droid_cam_url:
+        if self.use_esp32_cam:
+            esp32_cam_url = f"http://{self.esp32_cam_ip}:{self.esp32_cam_port}{self.esp32_cam_stream_path}"
+            logging.info(f"Utilisation de l'ESP32-CAM comme source: {esp32_cam_url}")
+            return esp32_cam_url
+        elif self.use_droid_cam and self.droid_cam_url:
             logging.info(f"Utilisation de DroidCam comme source: {self.droid_cam_url}")
             return self.droid_cam_url
         else:

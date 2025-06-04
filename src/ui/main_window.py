@@ -13,6 +13,7 @@ from ui.registration_page import RegistrationPage
 from ui.recognition_page import RecognitionPage
 from ui.attendance_page import AttendancePage
 from ui.dashboard_page import DashboardPage
+from ui.settings_page import SettingsPage
 
 # Importer les utilitaires
 from utils.config import config
@@ -45,7 +46,7 @@ class FaceRecognizerApp(QMainWindow):
         super().__init__()
         
         # Configuration de base de la fenêtre
-        self.setWindowTitle(config.get('app.name', "Système de reconnaissance faciale - CITEX SART"))
+        self.setWindowTitle(config.get('app.name', "Système de reconnaissance faciale - CBT SARL"))
         self.setWindowIcon(QIcon(os.path.join('src', 'assets', 'icons', 'app_icon.png')))
         
         # Définir la taille de la fenêtre
@@ -284,12 +285,12 @@ class FaceRecognizerApp(QMainWindow):
         logo_layout = QHBoxLayout(logo_container)
         
         logo_label = QLabel()
-        logo_path = os.path.join('src', 'assets', 'icons', 'citex_logo.png')
+        logo_path = os.path.join('src', 'assets', 'icons', 'CBT_logo.png')
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
             logo_label.setPixmap(logo_pixmap.scaled(80, 80, Qt.KeepAspectRatio))
         else:
-            logo_label.setText("CITEX")
+            logo_label.setText("CBT")
             logo_label.setFont(QFont("Arial", 26, QFont.Bold))
         
         logo_layout.addWidget(logo_label, 0, Qt.AlignCenter)
@@ -442,7 +443,7 @@ class FaceRecognizerApp(QMainWindow):
         header_layout.setContentsMargins(20, 10, 20, 10)
         
         # Titre de l'application
-        title_label = QLabel(config.get('app.name', "Système de reconnaissance faciale - CITEX SART"))
+        title_label = QLabel(config.get('app.name', "Système de reconnaissance faciale - CBT SARL"))
         title_label.setObjectName("header_title")
         title_label.setFont(QFont("Arial", 22, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
@@ -469,6 +470,7 @@ class FaceRecognizerApp(QMainWindow):
         self.registration_page = RegistrationPage()
         self.recognition_page = RecognitionPage()
         self.attendance_page = AttendancePage()
+        self.settings_page = SettingsPage()
         
         # Appliquer un style pour les boutons d'action à toutes les pages
         action_button_style = f"""
@@ -516,12 +518,14 @@ class FaceRecognizerApp(QMainWindow):
         self.registration_page.setStyleSheet(action_button_style)
         self.recognition_page.setStyleSheet(action_button_style)
         self.attendance_page.setStyleSheet(action_button_style)
+        self.settings_page.setStyleSheet(action_button_style)
         
         # Ajouter les pages au widget empilé
-        self.stacked_widget.addWidget(self.dashboard_page)
-        self.stacked_widget.addWidget(self.registration_page)
-        self.stacked_widget.addWidget(self.recognition_page)
-        self.stacked_widget.addWidget(self.attendance_page)
+        self.stacked_widget.addWidget(self.dashboard_page)    # Index 0
+        self.stacked_widget.addWidget(self.registration_page) # Index 1
+        self.stacked_widget.addWidget(self.recognition_page)  # Index 2
+        self.stacked_widget.addWidget(self.attendance_page)   # Index 3
+        self.stacked_widget.addWidget(self.settings_page)     # Index 4
         
         # Définir la page par défaut
         self.stacked_widget.setCurrentIndex(0)
@@ -549,6 +553,7 @@ class FaceRecognizerApp(QMainWindow):
         self.register_btn.clicked.connect(lambda: self.change_page(1, self.register_btn))
         self.recognize_btn.clicked.connect(lambda: self.change_page(2, self.recognize_btn))
         self.attendance_btn.clicked.connect(lambda: self.change_page(3, self.attendance_btn))
+        self.settings_btn.clicked.connect(lambda: self.change_page(4, self.settings_btn))
         
         # Connecter le bouton de sortie
         self.exit_btn.clicked.connect(self.close)
@@ -556,7 +561,7 @@ class FaceRecognizerApp(QMainWindow):
     def change_page(self, index, button):
         """Changer de page et mettre à jour le bouton actif"""
         # Réinitialiser tous les boutons
-        for btn in [self.dashboard_btn, self.register_btn, self.recognize_btn, self.attendance_btn]:
+        for btn in [self.dashboard_btn, self.register_btn, self.recognize_btn, self.attendance_btn, self.settings_btn]:
             btn.setObjectName("")
             btn.setStyleSheet("")  # Réinitialiser le style pour appliquer celui du parent
         
@@ -574,7 +579,7 @@ class FaceRecognizerApp(QMainWindow):
                           f"<h3>{config.get('app.name', 'Système de reconnaissance faciale')}</h3>"
                           f"<p>Version: {config.get('app.version', '1.0.0')}</p>"
                           "<p>Ce logiciel permet de gérer la présence des employés à l'aide de la reconnaissance faciale.</p>"
-                          "<p>Développé pour CITEX SART.</p>")
+                          "<p>Développé pour CBT SARL.</p>")
     
     def closeEvent(self, event):
         """Gérer l'événement de fermeture de l'application"""

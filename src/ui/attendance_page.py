@@ -220,36 +220,21 @@ class AttendancePage(QWidget):
             # Récupérer les présences selon les filtres
             records = []
             
+            # Récupérer toutes les présences pour la date sélectionnée d'abord
+            all_records = db_manager.get_attendance(selected_date)
+            logging.info(f"Nombre total de présences récupérées pour la date {selected_date}: {len(all_records)}")
+            
+            # Filtrer par employé si nécessaire
             if employee_id:
-                # Récupérer les présences pour un employé spécifique
-                employee_records = db_manager.get_employee_attendance(employee_id, selected_date, selected_date)
-                
-                # Ajouter les informations de l'employé
-                employee = db_manager.get_employee_by_id(employee_id)
-                if employee:
-                    for record in employee_records:
-                        record_with_info = {
-                            'id': record['id'],
-                            'employee_id': employee_id,
-                            'date': record['date'],
-                            'heure_arrivee': record['heure_arrivee'],
-                            'statut': record['statut'],
-                            'nom': employee['nom'],
-                            'prenom': employee['prenom'],
-                            'matricule': employee['matricule'],
-                            'poste': employee['poste']
-                        }
-                        records.append(record_with_info)
+                records = [r for r in all_records if r.get('employee_id') == employee_id]
+                logging.info(f"Après filtrage par employé: {len(records)} enregistrements")
             else:
-                # Récupérer toutes les présences pour la date sélectionnée
-                records = db_manager.get_attendance(selected_date)
-                
-                # Debug
-                logging.info(f"Nombre de présences récupérées pour la date {selected_date}: {len(records)}")
+                records = all_records
             
             # Filtrer par statut si nécessaire
             if status:
                 records = [r for r in records if r.get('statut') == status]
+                logging.info(f"Après filtrage par statut: {len(records)} enregistrements")
             
             # Filtrer par texte de recherche si nécessaire
             if search_text:
@@ -261,6 +246,7 @@ class AttendancePage(QWidget):
                         search_text in record.get('matricule', '').lower()):
                         filtered_records.append(record)
                 records = filtered_records
+                logging.info(f"Après filtrage par recherche: {len(records)} enregistrements")
             
             # Effacer le tableau
             self.attendance_table.setRowCount(0)

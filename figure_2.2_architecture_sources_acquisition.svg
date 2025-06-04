@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <!-- Titre du schéma -->
+  <text x="400" y="30" font-family="Arial" font-size="20" font-weight="bold" text-anchor="middle">Figure 2.2: Sources d'acquisition pour le système de reconnaissance faciale</text>
+  
+  <!-- Système central -->
+  <rect x="300" y="200" width="200" height="100" rx="10" ry="10" fill="#e6f2ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="400" y="250" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle">Système de reconnaissance</text>
+  <text x="400" y="275" font-family="Arial" font-size="14" text-anchor="middle">Application principale</text>
+  
+  <!-- ESP32-CAM (focus principal) -->
+  <rect x="100" y="150" width="120" height="80" rx="5" ry="5" fill="#ffe6cc" stroke="#ff9933" stroke-width="3"/>
+  <text x="160" y="185" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">ESP32-CAM</text>
+  <text x="160" y="205" font-family="Arial" font-size="12" text-anchor="middle">Caméra dédiée</text>
+  
+  <!-- Webcam PC -->
+  <rect x="100" y="270" width="120" height="80" rx="5" ry="5" fill="#e6ffcc" stroke="#66cc00" stroke-width="2"/>
+  <text x="160" y="305" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">Webcam PC</text>
+  <text x="160" y="325" font-family="Arial" font-size="12" text-anchor="middle">Caméra intégrée</text>
+  
+  <!-- DroidCam (smartphone) -->
+  <rect x="100" y="390" width="120" height="80" rx="5" ry="5" fill="#e6e6ff" stroke="#6666cc" stroke-width="2"/>
+  <text x="160" y="425" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">DroidCam</text>
+  <text x="160" y="445" font-family="Arial" font-size="12" text-anchor="middle">Smartphone</text>
+  
+  <!-- Caméra IP -->
+  <rect x="580" y="200" width="120" height="80" rx="5" ry="5" fill="#ffe6e6" stroke="#cc6666" stroke-width="2"/>
+  <text x="640" y="235" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">Caméra IP</text>
+  <text x="640" y="255" font-family="Arial" font-size="12" text-anchor="middle">Réseau local</text>
+  
+  <!-- Connexions -->
+  <line x1="220" y1="190" x2="300" y2="230" stroke="#666666" stroke-width="2"/>
+  <text x="250" y="200" font-family="Arial" font-size="12" fill="#666666">WiFi</text>
+  
+  <line x1="220" y1="310" x2="300" y2="270" stroke="#666666" stroke-width="2"/>
+  <text x="250" y="300" font-family="Arial" font-size="12" fill="#666666">USB</text>
+  
+  <line x1="220" y1="430" x2="300" y2="300" stroke="#666666" stroke-width="2"/>
+  <text x="250" y="380" font-family="Arial" font-size="12" fill="#666666">HTTP</text>
+  
+  <line x1="580" y1="240" x2="500" y2="240" stroke="#666666" stroke-width="2"/>
+  <text x="540" y="230" font-family="Arial" font-size="12" fill="#666666">RTSP</text>
+  
+  <!-- Légende -->
+  <rect x="600" y="350" width="180" height="130" fill="#f9f9f9" stroke="#cccccc" stroke-width="1"/>
+  <text x="690" y="370" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">Légende</text>
+  
+  <rect x="610" y="380" width="15" height="15" fill="#ffe6cc" stroke="#ff9933" stroke-width="3"/>
+  <text x="700" y="392" font-family="Arial" font-size="12">ESP32-CAM (focus)</text>
+  
+  <rect x="610" y="405" width="15" height="15" fill="#e6ffcc" stroke="#66cc00" stroke-width="2"/>
+  <text x="685" y="417" font-family="Arial" font-size="12">Webcam PC</text>
+  
+  <rect x="610" y="430" width="15" height="15" fill="#e6e6ff" stroke="#6666cc" stroke-width="2"/>
+  <text x="685" y="442" font-family="Arial" font-size="12">DroidCam</text>
+  
+  <rect x="610" y="455" width="15" height="15" fill="#ffe6e6" stroke="#cc6666" stroke-width="2"/>
+  <text x="685" y="467" font-family="Arial" font-size="12">Caméra IP</text>
+  
+  <!-- Détails ESP32-CAM -->
+  <rect x="50" y="50" width="220" height="80" rx="5" ry="5" fill="#fff9e6" stroke="#ccaa66" stroke-width="1" stroke-dasharray="5,2"/>
+  <text x="160" y="75" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">Détails ESP32-CAM</text>
+  <text x="160" y="95" font-family="Arial" font-size="11" text-anchor="middle">• Résolution: 1600x1200</text>
+  <text x="160" y="115" font-family="Arial" font-size="11" text-anchor="middle">• Connexion WiFi intégrée</text>
+  
+  <!-- Flèche pointant vers ESP32-CAM -->
+  <line x1="160" y1="130" x2="160" y2="150" stroke="#ccaa66" stroke-width="1" stroke-dasharray="5,2"/>
+  <polygon points="160,150 155,140 165,140" fill="#ccaa66"/>
+</svg>

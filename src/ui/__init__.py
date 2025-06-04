@@ -7,11 +7,13 @@ from .registration_page import RegistrationPage
 from .recognition_page import RecognitionPage
 from .attendance_page import AttendancePage
 from .dashboard_page import DashboardPage
+from .settings_page import SettingsPage
 
 __all__ = [
     'FaceRecognizerApp',
     'RegistrationPage',
     'RecognitionPage',
     'AttendancePage',
-    'DashboardPage'
+    'DashboardPage',
+    'SettingsPage'
 ] 
